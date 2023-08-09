@@ -1,6 +1,4 @@
-﻿using GSheetConnector;
-
-namespace ITBees.GsheetIntegration
+﻿namespace ITBees.GsheetIntegration
 {
     public class GSheet<T> : GSheet
     {
