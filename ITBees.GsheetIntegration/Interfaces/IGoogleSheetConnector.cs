@@ -1,4 +1,6 @@
-﻿namespace ITBees.GsheetIntegration.Interfaces
+﻿using Google.Apis.Sheets.v4.Data;
+
+namespace ITBees.GsheetIntegration.Interfaces
 {
     public interface IGoogleSheetConnector
     {
@@ -7,5 +9,6 @@
 
         T Insert<T> (string gsheetId, T item, string range);
         T InsertUnique<T> (string gsheetId, T item, string range, Func<T, bool> uniqueQuery, string uniqueuniqueProperty) where T: IGuidItem;
+        Spreadsheet CreateSpreadsheet(string newGoogleSpreadsheetOwnerEmail, string worksheetName);
     }
 }

@@ -8,12 +8,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Google.Apis.Drive.v3" Version="1.61.0.3120" />
     <PackageReference Include="Google.Apis.Sheets.v4" Version="1.61.0.3113" />
+    <PackageReference Include="ITBees.Translations" Version="5.0.25" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Interfaces\" />
     <Folder Include="Models\" />
+    <Folder Include="Translations\" />
   </ItemGroup>
 
 </Project>

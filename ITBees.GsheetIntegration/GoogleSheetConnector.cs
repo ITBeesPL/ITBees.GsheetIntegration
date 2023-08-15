@@ -123,6 +123,11 @@ namespace ITBees.GsheetIntegration
             return item;
         }
 
+        public Spreadsheet CreateSpreadsheet(string newGoogleSpreadsheetOwnerEmail, string worksheetName)
+        {
+            return _googleSheetsHelper.CreateSpreadsheet(newGoogleSpreadsheetOwnerEmail, worksheetName);
+        }
+
         private static AppendValuesResponse ExecuteRequest<T>(SpreadsheetsResource.ValuesResource.AppendRequest appendRequest) where T : IGuidItem
         {
             try

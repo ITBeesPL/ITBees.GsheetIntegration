@@ -1,5 +1,6 @@
 ﻿using System.Dynamic;
 using Google.Apis.Auth.OAuth2;
+using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
@@ -9,18 +10,23 @@ namespace ITBees.GsheetIntegration;
 
 public class GoogleSheetsHelper
 {
+    public string ApplicationName { get; }
     public SheetsService Service { get; set; }
-    static readonly string[] Scopes = { SheetsService.Scope.Spreadsheets };
+    static readonly string[] Scopes = { DriveService.ScopeConstants.Drive, SheetsService.Scope.Spreadsheets };
 
     public GoogleSheetsHelper(string credentialFilePath, string applicationName)
     {
-        var credential = GetCredentialsFromFile(credentialFilePath);
+        ApplicationName = applicationName;
+        Credential = GetCredentialsFromFile(credentialFilePath);
         Service = new SheetsService(new BaseClientService.Initializer()
         {
-            HttpClientInitializer = credential,
+            HttpClientInitializer = Credential,
             ApplicationName = applicationName
         });
     }
+
+    public GoogleCredential Credential { get; set; }
+
     private GoogleCredential GetCredentialsFromFile(string filePath)
     {
         GoogleCredential credential;
@@ -28,9 +34,10 @@ public class GoogleSheetsHelper
         {
             credential = GoogleCredential.FromStream(stream).CreateScoped(Scopes);
         }
+
         return credential;
     }
-    
+
     private readonly SheetsService _sheetsService;
     private readonly string _spreadsheetId;
 
@@ -39,7 +46,8 @@ public class GoogleSheetsHelper
     public List<ExpandoObject> GetDataFromSheet(GoogleSheetParameters googleSheetParameters)
     {
         googleSheetParameters = MakeGoogleSheetDataRangeColumnsZeroBased(googleSheetParameters);
-        var range = $"{googleSheetParameters.SheetName}!{GetColumnName(googleSheetParameters.RangeColumnStart)}{googleSheetParameters.RangeRowStart}:{GetColumnName(googleSheetParameters.RangeColumnEnd)}{googleSheetParameters.RangeRowEnd}";
+        var range =
+            $"{googleSheetParameters.SheetName}!{GetColumnName(googleSheetParameters.RangeColumnStart)}{googleSheetParameters.RangeRowStart}:{GetColumnName(googleSheetParameters.RangeColumnEnd)}{googleSheetParameters.RangeRowEnd}";
 
         SpreadsheetsResource.ValuesResource.GetRequest request =
             _sheetsService.Spreadsheets.Values.Get(_spreadsheetId, range);
@@ -70,6 +78,7 @@ public class GoogleSheetsHelper
                     {
                         columnNames.Add(row[i].ToString());
                     }
+
                     rowCounter++;
                     continue;
                 }
@@ -82,6 +91,7 @@ public class GoogleSheetsHelper
                     expandoDict.Add(columnName, row[columnCounter].ToString());
                     columnCounter++;
                 }
+
                 returnValues.Add(expando);
                 rowCounter++;
             }
@@ -124,14 +134,21 @@ public class GoogleSheetsHelper
                     cellFormat.TextFormat.Bold = true;
                 }
 
-                cellFormat.BackgroundColor = new Color { Blue = (float)cell.BackgroundColor.B / 255, Red = (float)cell.BackgroundColor.R / 255, Green = (float)cell.BackgroundColor.G / 255 };
+                cellFormat.BackgroundColor = new Color
+                {
+                    Blue = (float)cell.BackgroundColor.B / 255,
+                    Red = (float)cell.BackgroundColor.R / 255,
+                    Green = (float)cell.BackgroundColor.G / 255
+                };
 
                 cellData.UserEnteredFormat = cellFormat;
                 listCellData.Add(cellData);
             }
+
             rowData.Values = listCellData;
             listRowData.Add(rowData);
         }
+
         request.UpdateCells.Rows = listRowData;
 
         // It's a batch request so you can create more than one request and send them all in one batch. Just use reqs.Requests.Add() to add additional requests for the same spreadsheet
@@ -165,5 +182,43 @@ public class GoogleSheetsHelper
         var sheet = spreadsheet.Sheets.FirstOrDefault(s => s.Properties.Title == spreadSheetName);
         int sheetId = (int)sheet.Properties.SheetId;
         return sheetId;
+    }
+
+    public Spreadsheet CreateSpreadsheet(string newGoogleSpreadsheetOwnerEmail, string worksheetName)
+    {
+        {
+            Spreadsheet spreadsheet = null;
+
+            spreadsheet = new Spreadsheet
+            {
+                Properties = new SpreadsheetProperties
+                {
+                    Title = worksheetName
+                }
+            };
+
+            var createdSpreadsheet = Service.Spreadsheets.Create(spreadsheet).Execute();
+
+            var driveService = new DriveService(new BaseClientService.Initializer
+            {
+                HttpClientInitializer = Credential,
+                ApplicationName = ApplicationName,
+            });
+
+            var permission = new Google.Apis.Drive.v3.Data.Permission
+            {
+                Type = "user",
+                Role = "writer",
+                EmailAddress = newGoogleSpreadsheetOwnerEmail
+            };
+
+
+
+            var request = driveService.Permissions.Create(permission, createdSpreadsheet.SpreadsheetId);
+            request.Execute();
+            var file = driveService.Files.Get(createdSpreadsheet.SpreadsheetId).Execute();
+
+            return createdSpreadsheet;
+        }
     }
 }
