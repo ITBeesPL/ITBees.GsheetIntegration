@@ -1,6 +1,8 @@
-﻿namespace ITBees.GsheetIntegration
+﻿using ITBees.GsheetIntegration.Interfaces;
+
+namespace ITBees.GsheetIntegration
 {
-    public class GSheet<T> : GSheet
+    public class GSheet<T> : GSheet where T : class, IGuidItem
     {
         public new readonly IList<T> Data;
 

@@ -184,7 +184,7 @@ public class GoogleSheetsHelper
         return sheetId;
     }
 
-    public Spreadsheet CreateSpreadsheet(string newGoogleSpreadsheetOwnerEmail, string worksheetName)
+    public Spreadsheet CreateSpreadsheet(string newGoogleSpreadsheetOwnerEmail, string worksheetName, string templateWorksheetId)
     {
         {
             Spreadsheet spreadsheet = null;
@@ -212,13 +212,55 @@ public class GoogleSheetsHelper
                 EmailAddress = newGoogleSpreadsheetOwnerEmail
             };
 
-
-
             var request = driveService.Permissions.Create(permission, createdSpreadsheet.SpreadsheetId);
             request.Execute();
             var file = driveService.Files.Get(createdSpreadsheet.SpreadsheetId).Execute();
+            if (string.IsNullOrEmpty(templateWorksheetId))
+                return createdSpreadsheet;
+
+            SpreadsheetsResource.GetRequest getRequest = Service.Spreadsheets.Get(templateWorksheetId);
+            getRequest.IncludeGridData = true;
+            Spreadsheet templateSpreadSheet = getRequest.Execute();
+
+            foreach (var sheet in templateSpreadSheet.Sheets)
+            {
+                var sourceSheetRange = $"{sheet.Properties.Title}!A:Z";
+                var sourceValues = Service.Spreadsheets.Values.Get(templateWorksheetId, sourceSheetRange).Execute().Values;
+
+                var targetSpreadsheetId = createdSpreadsheet.SpreadsheetId;
+                var addSheetRequest = new AddSheetRequest { Properties = new SheetProperties { Title = sheet.Properties.Title } };
+                var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest { Requests = new List<Request> { new Request { AddSheet = addSheetRequest } } };
+                var response = Service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, targetSpreadsheetId).Execute();
+                var newSheetId = response.Replies[0].AddSheet.Properties.Title;
+
+                var targetSheetRange = $"{newSheetId}!A:Z";
+                var valueRange = new ValueRange { Values = sourceValues };
+                var updateRequest = Service.Spreadsheets.Values.Update(valueRange, targetSpreadsheetId, targetSheetRange);
+                updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED;
+                updateRequest.Execute();
+            }
+
+            DeleteSheet(createdSpreadsheet, 0);
 
             return createdSpreadsheet;
         }
+    }
+
+    private void DeleteSheet(Spreadsheet createdSpreadsheet, int sheetId)
+    {
+        var deleterequest = new Request
+        {
+            DeleteSheet = new DeleteSheetRequest
+            {
+                SheetId = sheetId
+            }
+        };
+
+        var deleteSheet = new BatchUpdateSpreadsheetRequest
+        {
+            Requests = new List<Request> { deleterequest }
+        };
+
+        Service.Spreadsheets.BatchUpdate(deleteSheet, createdSpreadsheet.SpreadsheetId).Execute();
     }
 }

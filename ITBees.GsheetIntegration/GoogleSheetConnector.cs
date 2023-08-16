@@ -1,7 +1,9 @@
-﻿using Google.Apis.Sheets.v4;
+﻿using System.Reflection;
+using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
 using ITBees.GsheetIntegration.Interfaces;
 using ITBees.GsheetIntegration.Tools;
+using ITBees.Models.Languages;
 
 namespace ITBees.GsheetIntegration
 {
@@ -15,13 +17,13 @@ namespace ITBees.GsheetIntegration
         {
             _googleSheetsHelper = googleSheetsHelper;
         }
-        public GSheet<T> Get<T>(string sheetId, string sheetName, string range, bool firstRowHeader) where T : IGuidItem
+        public GSheet<T> Get<T>(string sheetId, string sheetName, string range, bool firstRowHeader, Language lang) where T : class, IGuidItem
         {
             var values = _googleSheetsHelper.Service.Spreadsheets.Values;
             var request = values.Get(sheetId, range);
             var response = request.Execute();
 
-            var result = GSheetTypeConverter.Convert<T>(response, firstRowHeader);
+            var result = GSheetTypeConverter.Convert<T>(response, firstRowHeader, lang);
 
             return result;
         }
@@ -49,12 +51,12 @@ namespace ITBees.GsheetIntegration
         /// <param name="item"></param>
         /// <param name="range">Should be whole sheet range like : CompanyPartner!A:F</param>
         /// <returns></returns>
-        public T InsertUnique<T>(string gsheetId, T item, string range, Func<T, bool> uniqueQuery, string uniqueProperty) where T : IGuidItem
+        public T InsertUnique<T>(string gsheetId, T item, string range, Func<T, bool> uniqueQuery, string uniqueProperty, Language lang) where T : class, IGuidItem
         {
             GSheet<T> gsheet;
             if (_gsheet == null)
             {
-                _gsheet = Get<T>(gsheetId, "", range, true);
+                _gsheet = Get<T>(gsheetId, "", range, true, lang);
                 gsheet = _gsheet;
             }
             else
@@ -66,7 +68,7 @@ namespace ITBees.GsheetIntegration
                 else
                 {
                     gsheet = null;
-                    _gsheet = Get<T>(gsheetId, "", range, true);
+                    _gsheet = Get<T>(gsheetId, "", range, true, lang);
                     gsheet = _gsheet;
                 }
 
@@ -88,9 +90,18 @@ namespace ITBees.GsheetIntegration
             var valueRange = new ValueRange();
 
             var objectList = new List<object>();
+            var i = 0;
             foreach (var column in gsheet.ColumnsIndexes.OrderBy(x => x.Key))
             {
-                var pi = item.GetType().GetProperties().FirstOrDefault(x => x.Name == column.Value);
+                PropertyInfo pi = null;
+                if (i == 0)
+                {
+                    pi = item.GetType().GetProperties().FirstOrDefault(x => x.Name == "Guid");
+                }
+                else
+                {
+                    pi = item.GetType().GetProperties().FirstOrDefault(x => x.Name == column.Value.Replace("-","") + $"_{i}");
+                }
                 var value = pi.GetValue(item);
                 value = value == null ? string.Empty : value.ToString();
                 if (pi.PropertyType == typeof(string))
@@ -109,6 +120,8 @@ namespace ITBees.GsheetIntegration
                 {
                     objectList.Add(string.Empty);
                 }
+
+                i++;
             }
 
 
@@ -125,7 +138,12 @@ namespace ITBees.GsheetIntegration
 
         public Spreadsheet CreateSpreadsheet(string newGoogleSpreadsheetOwnerEmail, string worksheetName)
         {
-            return _googleSheetsHelper.CreateSpreadsheet(newGoogleSpreadsheetOwnerEmail, worksheetName);
+            return _googleSheetsHelper.CreateSpreadsheet(newGoogleSpreadsheetOwnerEmail, worksheetName, String.Empty);
+        }
+
+        public Spreadsheet CreateSpreadsheet(string newGoogleSpreadsheetOwnerEmail, string worksheetName, string copyTemplateSheetId)
+        {
+            return _googleSheetsHelper.CreateSpreadsheet(newGoogleSpreadsheetOwnerEmail, worksheetName, copyTemplateSheetId);
         }
 
         private static AppendValuesResponse ExecuteRequest<T>(SpreadsheetsResource.ValuesResource.AppendRequest appendRequest) where T : IGuidItem

@@ -1,6 +1,9 @@
 ﻿using System.Dynamic;
 using System.Reflection;
 using Google.Apis.Sheets.v4.Data;
+using ITBees.GsheetIntegration.Interfaces;
+using ITBees.Models.Languages;
+using ITBees.Translations;
 
 namespace ITBees.GsheetIntegration.Tools
 {
@@ -33,16 +36,16 @@ namespace ITBees.GsheetIntegration.Tools
                             }
                             else
                             {
-                                instance.Add(propertyName+(count+1), row[j]);
+                                instance.Add(propertyName + (count + 1), row[j]);
                             }
-                            
+
                         }
                         catch (Exception e)
                         {
                             throw new Exception(
                                 $"Check collumn name :{propertyName} with value {row[j]} error message : {e.Message}");
                         }
-                        
+
                     }
 
                     results.Add(instance);
@@ -52,7 +55,7 @@ namespace ITBees.GsheetIntegration.Tools
             return new GSheet(results, columns);
         }
 
-        public static GSheet<T> Convert<T>(ValueRange valueRange, bool firstRowHeader)
+        public static GSheet<T> Convert<T>(ValueRange valueRange, bool firstRowHeader, Language lang) where T : class, IGuidItem
         {
             var results = new List<T>();
 
@@ -62,17 +65,23 @@ namespace ITBees.GsheetIntegration.Tools
             {
                 var row = valueRange.Values[i];
 
-                var instance = Activator.CreateInstance<T>();
-
+                T instance = Activator.CreateInstance<T>();
+                instance.WorksheetName = typeof(T).GetType().Name;
                 if (CheckIsNotEmptyRow(row))
                 {
+
                     for (int j = 0; j < row.Count; j++)
                     {
                         var propertyName = columns.Where(x => x.Key == j).First().Value;
-                        PropertyInfo pi = instance.GetType().GetProperty(propertyName);
+
                         var currentValue = row[j];
-                        if (propertyName.Contains("Guid"))
+                        if (propertyName.StartsWith("Guid"))
                         {
+                            PropertyInfo pi = instance.GetType().GetProperty(propertyName.Replace("-", ""));
+                            if (currentValue.ToString().Length < 32)
+                            {
+                                throw new NotProperGuidValueInsideGsheetException(currentValue.ToString(), lang);
+                            }
                             if (string.IsNullOrEmpty(currentValue.ToString()) == false)
                             {
                                 pi.SetValue(instance, new Guid(currentValue.ToString()));
@@ -80,6 +89,7 @@ namespace ITBees.GsheetIntegration.Tools
                         }
                         else
                         {
+                            PropertyInfo pi = instance.GetType().GetProperty(propertyName.Replace("-", "") + "_" + j);
                             if (pi.PropertyType == typeof(string))
                             {
                                 pi.SetValue(instance, currentValue.ToString());
@@ -143,6 +153,14 @@ namespace ITBees.GsheetIntegration.Tools
             }
 
             return false;
+        }
+    }
+
+    public class NotProperGuidValueInsideGsheetException : Exception
+    {
+        public NotProperGuidValueInsideGsheetException(string message, Language lang) : base($"{Translate.Get(() => Translations.GoogleSheetContectorTransaltions.NotProperGuidValueInsideGsheetException, lang)}{message}")
+        {
+
         }
     }
 }
