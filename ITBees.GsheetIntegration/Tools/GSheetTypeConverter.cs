@@ -77,7 +77,7 @@ namespace ITBees.GsheetIntegration.Tools
                         var currentValue = row[j];
                         if (propertyName.StartsWith("Guid"))
                         {
-                            PropertyInfo pi = instance.GetType().GetProperty(propertyName.Replace("-", ""));
+                            PropertyInfo pi = instance.GetType().GetProperty(propertyName.Replace("-", "").Replace(" ",""));
                             if (currentValue.ToString().Length < 32)
                             {
                                 throw new NotProperGuidValueInsideGsheetException(currentValue.ToString(), lang);
@@ -89,7 +89,7 @@ namespace ITBees.GsheetIntegration.Tools
                         }
                         else
                         {
-                            PropertyInfo pi = instance.GetType().GetProperty(propertyName.Replace("-", "") + "_" + j);
+                            PropertyInfo pi = instance.GetType().GetProperty(propertyName.Replace("-", "").Replace(" ", "") + "_" + j);
                             if (pi.PropertyType == typeof(string))
                             {
                                 pi.SetValue(instance, currentValue.ToString());
