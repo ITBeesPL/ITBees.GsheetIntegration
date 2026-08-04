@@ -10,7 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Google.Apis.Drive.v3" Version="1.68.0.3466" />
     <PackageReference Include="Google.Apis.Sheets.v4" Version="1.68.0.3476" />
-    <PackageReference Include="ITBees.Translations" Version="8.0.36" />
+    <PackageReference Include="ITBees.Translations" Version="8.0.151" />
   </ItemGroup>
 
   <ItemGroup>
